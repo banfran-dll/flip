@@ -1,5 +1,6 @@
 # Builds the app and publishes it to GitHub Pages on every push to main.
-# One-time setup: repository Settings → Pages → Source: "GitHub Actions".
+# The configure-pages step enables Pages (source: GitHub Actions) on first run,
+# so no manual setup is needed on a public repository.
 name: Deploy to GitHub Pages
 
 on:
@@ -25,6 +26,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - run: npm ci
       - run: npm test
       - run: npm run build

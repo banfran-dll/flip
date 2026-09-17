@@ -107,7 +107,7 @@ npm run preview    # 빌드 결과 미리보기
 ## GitHub Pages 배포
 
 `.github/workflows/deploy.yml`이 `main` 브랜치에 푸시될 때마다 빌드해서 GitHub Pages에 올립니다.
-저장소 **Settings → Pages → Source**를 **GitHub Actions**로 한 번만 바꿔 주면 됩니다.
+첫 실행 때 워크플로가 Pages(소스: GitHub Actions)를 자동으로 켭니다. 안 켜지면 저장소 **Settings → Pages → Source**를 **GitHub Actions**로 바꿔 주세요.
 `vite.config.ts`의 `base: './'` 덕분에 `https://<user>.github.io/<repo>/` 같은 하위 경로에서도 그대로 동작합니다.
 
 ## 계산 방식
