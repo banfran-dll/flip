@@ -1,8 +1,13 @@
-import type { PricePoint } from '../lib/history';
 import { compact } from '../lib/format';
 
+export interface ChartPoint {
+  t: number;
+  buy: number;
+  sell: number;
+}
+
 interface Props {
-  points: PricePoint[];
+  points: ChartPoint[];
   width?: number;
   height?: number;
 }
@@ -23,7 +28,7 @@ export function Sparkline({ points, width = 360, height = 90 }: Props) {
 
   const x = (t: number) => padX + ((t - t0) / dt) * (width - padX * 2);
   const y = (v: number) => height - padY - ((v - min) / span) * (height - padY * 2);
-  const path = (pick: (p: PricePoint) => number) =>
+  const path = (pick: (p: ChartPoint) => number) =>
     points
       .filter((p) => Number.isFinite(pick(p)))
       .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.t).toFixed(1)},${y(pick(p)).toFixed(1)}`)

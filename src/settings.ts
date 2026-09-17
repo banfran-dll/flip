@@ -18,6 +18,10 @@ export interface AppSettings {
   alerts: AlertRule;
   /** Blend measured recent trade rates into fill-time estimates. */
   useLiveRates: boolean;
+  /** Concurrent order slots the planner may use. */
+  orderSlots: number;
+  crashMinDropPct: number;
+  paperEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -34,6 +38,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   refreshSec: 30,
   alerts: DEFAULT_ALERT_RULE,
   useLiveRates: true,
+  orderSlots: 14,
+  crashMinDropPct: 15,
+  paperEnabled: true,
 };
 
 export const TAX_PRESETS = [

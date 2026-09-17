@@ -11,6 +11,9 @@ import { RiskBadges } from './RiskBadges';
 import { Trend } from './Trend';
 import type { ScoredFlip } from '../lib/signals';
 import type { NpcFlip } from '../lib/npc';
+import type { CraftFlip } from '../lib/craft';
+import type { CrashCandidate } from '../lib/crash';
+import { Sparkline } from './Sparkline';
 
 export interface LookupRow {
   id: string;
@@ -245,5 +248,119 @@ export function npcColumns(t: T, favorites: ReadonlySet<string>): Column<NpcFlip
     },
     { key: 'cost', header: t('colNpcCost'), align: 'right', render: (f) => <span title={coins(f.cost)}>{compact(f.cost)}</span>, sortValue: (f) => f.cost },
     { key: 'profit', header: t('colNpcProfit'), align: 'right', render: (f) => <span className="pos strong" title={coins(f.profit)}>{compact(f.profit)}</span>, sortValue: (f) => f.profit },
+  ];
+}
+
+export function craftColumns(t: T, lang: Lang, favorites: ReadonlySet<string>): Column<CraftFlip>[] {
+  const recipeText = (f: CraftFlip) =>
+    Object.entries(f.recipe.inputs)
+      .map(([id, qty]) => `${integer(qty)}× ${itemName(id)}`)
+      .join(' + ');
+  return [
+    { key: 'item', header: t('colItem'), render: (f) => <ItemName id={f.id} favorite={favorites.has(f.id)} />, sortValue: (f) => itemName(f.id), className: 'col-item' },
+    {
+      key: 'recipe',
+      header: t('colRecipe'),
+      render: (f) => (
+        <span className="recipe" title={recipeText(f)}>
+          {recipeText(f)}
+          {f.recipe.count > 1 && <span className="muted"> → ×{f.recipe.count}</span>}
+        </span>
+      ),
+    },
+    {
+      key: 'type',
+      header: t('colCraftType'),
+      align: 'center',
+      render: (f) => (f.recipe.type === 'forge' ? <span className="badge badge--forge">{t('craftTypeForge', { d: duration((f.recipe.duration ?? 0) / 3600, lang) })}</span> : <span className="muted">{t('craftTypeCrafting')}</span>),
+      sortValue: (f) => (f.recipe.type === 'forge' ? 1 : 0),
+    },
+    { key: 'mat', header: t('colMatCost'), align: 'right', render: (f) => coins(f.materialCostInstant), sortValue: (f) => f.materialCostInstant },
+    { key: 'sell', header: t('colSellOffer'), align: 'right', render: (f) => coins(f.revenueOffer), sortValue: (f) => f.revenueOffer },
+    {
+      key: 'mixed',
+      header: t('colProfitMixed'),
+      align: 'right',
+      render: (f) => <span className={f.profitMixed > 0 ? 'pos strong' : 'neg'}>{coins(f.profitMixed)}</span>,
+      sortValue: (f) => f.profitMixed,
+    },
+    { key: 'margin', header: t('colMargin'), align: 'right', render: (f) => pct(f.marginMixedPct), sortValue: (f) => f.marginMixedPct },
+    {
+      key: 'instant',
+      header: t('colProfitInstant'),
+      align: 'right',
+      render: (f) => <span className={f.profitInstant > 0 ? 'pos' : 'neg'}>{coins(f.profitInstant)}</span>,
+      sortValue: (f) => f.profitInstant,
+    },
+    {
+      key: 'orders',
+      header: t('colProfitOrders'),
+      align: 'right',
+      render: (f) => <span className={f.profitOrders > 0 ? 'pos' : 'neg'}>{coins(f.profitOrders)}</span>,
+      sortValue: (f) => f.profitOrders,
+    },
+    {
+      key: 'crafts',
+      header: t('colCrafts'),
+      align: 'right',
+      render: (f) => (
+        <span>
+          {t('perCraft', { n: integer(f.crafts), u: integer(f.units) })}
+          {f.partial && <span className="muted"> · {t('bookPartial')}</span>}
+        </span>
+      ),
+      sortValue: (f) => f.crafts,
+    },
+    {
+      key: 'batch',
+      header: t('colBatchProfit'),
+      align: 'right',
+      render: (f) => <span className={f.batchProfitMixed > 0 ? 'pos strong' : 'neg'} title={coins(f.batchProfitMixed)}>{compact(f.batchProfitMixed)}</span>,
+      sortValue: (f) => f.batchProfitMixed,
+    },
+    {
+      key: 'sellHours',
+      header: t('colSellHours'),
+      align: 'right',
+      render: (f) => <span className={f.sellHours > 24 ? 'neg' : ''}>{duration(f.sellHours, lang)}</span>,
+      sortValue: (f) => f.sellHours,
+    },
+    {
+      key: 'perHour',
+      header: t('colProfitHour'),
+      tip: t('craftPerHourTip'),
+      align: 'right',
+      render: (f) => <span className="pos strong" title={coins(f.profitPerHour)}>{compact(f.profitPerHour)}</span>,
+      sortValue: (f) => f.profitPerHour,
+    },
+  ];
+}
+
+export function crashColumns(t: T, favorites: ReadonlySet<string>): Column<CrashCandidate>[] {
+  return [
+    { key: 'item', header: t('colItem'), render: (c) => <ItemName id={c.id} favorite={favorites.has(c.id)} />, sortValue: (c) => itemName(c.id), className: 'col-item' },
+    {
+      key: 'chart',
+      header: '',
+      render: (c) => (
+        <span className="mini-chart">
+          <Sparkline points={c.series.map((p) => ({ t: p.t, buy: p.buyAvg, sell: p.sellAvg }))} width={160} height={36} />
+        </span>
+      ),
+    },
+    { key: 'now', header: t('colInstaBuy'), align: 'right', render: (c) => coins(c.instaBuyPrice), sortValue: (c) => c.instaBuyPrice },
+    { key: 'base', header: t('colBaseline'), align: 'right', render: (c) => coins(c.baselineBuy), sortValue: (c) => c.baselineBuy },
+    { key: 'drop', header: t('colDrop'), align: 'right', render: (c) => <span className="neg strong">−{pct(c.dropPct)}</span>, sortValue: (c) => c.dropPct },
+    {
+      key: 'recovery',
+      header: t('colRecovery'),
+      tip: t('colRecoveryTip'),
+      align: 'right',
+      render: (c) => <span className={c.recoveryMarginPct > 0 ? 'pos strong' : 'neg'}>{pct(c.recoveryMarginPct)}</span>,
+      sortValue: (c) => c.recoveryMarginPct,
+    },
+    { key: 'trades', header: t('colWindowTrades'), align: 'right', render: (c) => compact(c.windowTrades), sortValue: (c) => c.windowTrades },
+    { key: 'weekly', header: t('minWeeklyVolume'), align: 'right', render: (c) => compact(c.weeklyVolume), sortValue: (c) => c.weeklyVolume },
+    { key: 'hist', header: t('colHistory'), align: 'right', render: (c) => `${c.historyHours.toFixed(1)}h`, sortValue: (c) => c.historyHours },
   ];
 }

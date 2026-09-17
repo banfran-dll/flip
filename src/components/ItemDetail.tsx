@@ -13,6 +13,8 @@ import { NumField } from './NumField';
 import { OrderBook } from './OrderBook';
 import { RiskBadges } from './RiskBadges';
 import { Sparkline } from './Sparkline';
+import { HistoryChart } from './HistoryChart';
+import type { Bucket } from '../lib/buckets';
 
 interface Props {
   product: BazaarProduct;
@@ -20,6 +22,7 @@ interface Props {
   taxRate: number;
   budget: number;
   history: PricePoint[];
+  buckets: Bucket[];
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onClose: () => void;
@@ -28,7 +31,7 @@ interface Props {
   lang: Lang;
 }
 
-export function ItemDetail({ product, flip, taxRate, budget, history, isFavorite, onToggleFavorite, onClose, onTrack, t, lang }: Props) {
+export function ItemDetail({ product, flip, taxRate, budget, history, buckets, isFavorite, onToggleFavorite, onClose, onTrack, t, lang }: Props) {
   const id = product.product_id;
   const q = product.quick_status;
   const [qty, setQty] = useState<number>(flip?.units ?? 64);
@@ -158,6 +161,11 @@ export function ItemDetail({ product, flip, taxRate, budget, history, isFavorite
           />
         </div>
         {(instaBuy.partial || instaSell.partial) && <p className="field__hint">{t('partialFill')}</p>}
+      </section>
+
+      <section className="panel">
+        <h3 className="panel__title">{t('range24h')} / {t('range7d')}</h3>
+        <HistoryChart id={id} buckets={buckets} t={t} />
       </section>
 
       <section className="panel">

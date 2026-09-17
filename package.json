@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "update-names": "node scripts/update-item-names.mjs"
+    "update-names": "node scripts/update-item-names.mjs",
+    "update-recipes": "node scripts/update-recipes.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",

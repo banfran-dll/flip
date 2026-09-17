@@ -107,10 +107,10 @@ select.input { appearance: auto; }
 .settings__heading { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px; }
 
 /* ---------- tabs ---------- */
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 12px; overflow-x: auto; scrollbar-width: thin; }
 .tab {
-  background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; color: var(--text-muted);
-  display: inline-flex; align-items: center; gap: 8px; font-weight: 500; margin-bottom: -1px;
+  background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 11px; cursor: pointer; color: var(--text-muted);
+  display: inline-flex; align-items: center; gap: 6px; font-weight: 500; margin-bottom: -1px; white-space: nowrap; flex: 0 0 auto;
 }
 .tab:hover { color: var(--text); }
 .tab.is-active { color: var(--text); border-bottom-color: var(--accent); }
@@ -266,6 +266,10 @@ select.input { appearance: auto; }
 .state--outbid, .state--undercut { color: var(--neg); border-color: rgba(248, 113, 113, 0.5); background: rgba(248, 113, 113, 0.1); }
 .state--filled { color: var(--info); border-color: rgba(96, 165, 250, 0.4); background: rgba(96, 165, 250, 0.08); }
 .state--unknown, .state--pending { color: var(--text-muted); border-color: var(--border); }
+.state--paper-buying { color: var(--info); border-color: rgba(96, 165, 250, 0.4); }
+.state--paper-selling { color: var(--warn); border-color: rgba(251, 191, 36, 0.4); }
+.state--paper-closed { color: var(--pos); border-color: rgba(74, 222, 128, 0.4); }
+.state--paper-expired { color: var(--text-muted); border-color: var(--border); }
 .row-actions { display: inline-flex; gap: 6px; }
 .track-row { margin-bottom: 8px; flex-wrap: wrap; }
 .tab__count--hot { color: var(--accent); border-color: var(--accent); }
@@ -274,6 +278,29 @@ select.input { appearance: auto; }
 .toast__title { font-weight: 600; font-size: 13px; }
 .toast--order { border-color: var(--neg); }
 .toast--order .toast__tag { color: var(--neg); }
+
+/* ---------- planner ---------- */
+.planner-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: start; margin-bottom: 12px; padding: 12px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+.planner-form .field { margin-bottom: 0; }
+.planner-form__action { align-self: end; }
+.stats--row { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.stat__sub--wrap { white-space: normal; }
+.sat { position: relative; display: inline-block; width: 72px; height: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; vertical-align: middle; }
+.sat__bar { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(74, 222, 128, 0.35); }
+.sat__label { position: relative; font-size: 10px; line-height: 16px; display: block; text-align: center; }
+
+/* ---------- craft ---------- */
+.recipe { display: inline-block; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; font-size: 12px; }
+.badge--forge { color: #f0a35e; border-color: rgba(240, 163, 94, 0.5); background: rgba(240, 163, 94, 0.1); cursor: default; }
+
+/* ---------- crash / charts ---------- */
+.mini-chart { display: inline-block; width: 160px; vertical-align: middle; }
+.mini-chart .sparkline__axis { display: none; }
+.crash-controls { margin-bottom: 10px; align-items: end; }
+.crash-controls .field { margin-bottom: 0; }
+.input--narrow { width: 120px; }
+.segmented--sm { margin-bottom: 8px; }
+.segmented--sm .segmented__btn { padding: 4px 10px; font-size: 12px; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {
@@ -295,9 +322,8 @@ select.input { appearance: auto; }
   .sidebar .sidebar__close { display: inline-flex; }
   .main { padding: 12px; }
   .table-wrap { max-height: none; }
-  .tabs { overflow-x: auto; }
-  .tab { white-space: nowrap; }
   .orders-form { grid-template-columns: 1fr 1fr; }
+  .planner-form { grid-template-columns: 1fr; }
   .orders-form__item { grid-column: 1 / -1; }
 }
 @media (max-width: 640px) {
