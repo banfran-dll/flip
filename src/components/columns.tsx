@@ -10,6 +10,7 @@ import { ItemName } from './ItemName';
 import { RiskBadges } from './RiskBadges';
 import { Trend } from './Trend';
 import type { ScoredFlip } from '../lib/signals';
+import type { NpcFlip } from '../lib/npc';
 
 export interface LookupRow {
   id: string;
@@ -72,10 +73,34 @@ export function flipColumns(t: T, lang: Lang, favorites: ReadonlySet<string>, ct
       tip: t('colFlowTip'),
       align: 'right',
       render: (f) => (
-        <span className="flow">
+        <span
+          className="flow"
+          title={
+            f.liveWeight > 0
+              ? t('rateTip', {
+                  ws: compact(f.weeklyInstaSellsPerHour),
+                  wb: compact(f.weeklyInstaBuysPerHour),
+                  ls: compact(f.instaSellsPerHour),
+                  lb: compact(f.instaBuysPerHour),
+                  w: Math.round(f.liveWeight * 100),
+                  a: Number.isFinite(f.activity) ? f.activity.toFixed(2) : '—',
+                })
+              : undefined
+          }
+        >
           <span className={f.instaSellsPerHour <= f.instaBuysPerHour ? 'flow__slow' : ''}>{compact(f.instaSellsPerHour)}</span>
           <span className="muted"> → </span>
           <span className={f.instaBuysPerHour < f.instaSellsPerHour ? 'flow__slow' : ''}>{compact(f.instaBuysPerHour)}</span>
+          {f.liveWeight > 0 && (
+            <span className="live-tag" style={{ opacity: 0.35 + 0.65 * f.liveWeight }}>
+              {t('liveRate')}
+            </span>
+          )}
+          {Number.isFinite(f.activity) && (f.activity >= 1.5 || f.activity <= 0.5) && (
+            <span className={`activity ${f.activity >= 1.5 ? 'pos' : 'neg'}`} title={t('activityTip')}>
+              ×{f.activity.toFixed(1)}
+            </span>
+          )}
         </span>
       ),
       sortValue: (f) => Math.min(f.instaSellsPerHour, f.instaBuysPerHour),
@@ -196,5 +221,29 @@ export function lookupColumns(t: T, favorites: ReadonlySet<string>, ctx: ChangeC
       sortValue: (r) => r.product.quick_status.sellOrders + r.product.quick_status.buyOrders,
     },
     { key: 'flags', header: t('colFlags'), align: 'center', render: (r) => (r.flip ? <RiskBadges flags={r.flip.flags} t={t} /> : <RiskBadges flags={['EMPTY_BOOK']} t={t} />) },
+  ];
+}
+
+export function npcColumns(t: T, favorites: ReadonlySet<string>): Column<NpcFlip>[] {
+  return [
+    { key: 'item', header: t('colItem'), render: (f) => <ItemName id={f.id} favorite={favorites.has(f.id)} />, sortValue: (f) => itemName(f.id), className: 'col-item' },
+    { key: 'npc', header: t('colNpcPrice'), align: 'right', render: (f) => coins(f.npcPrice), sortValue: (f) => f.npcPrice },
+    { key: 'buy', header: t('colInstaBuy'), align: 'right', render: (f) => coins(f.instaBuyPrice), sortValue: (f) => f.instaBuyPrice },
+    { key: 'unit', header: t('colProfitUnit'), align: 'right', render: (f) => <span className="pos">{coins(f.profitPerUnit)}</span>, sortValue: (f) => f.profitPerUnit },
+    { key: 'margin', header: t('colMargin'), align: 'right', render: (f) => pct(f.marginPct), sortValue: (f) => f.marginPct },
+    {
+      key: 'units',
+      header: t('colNpcUnits'),
+      align: 'right',
+      render: (f) => (
+        <span>
+          {integer(f.units)}
+          {f.budgetLimited && <span className="muted"> · {t('budgetLimited')}</span>}
+        </span>
+      ),
+      sortValue: (f) => f.units,
+    },
+    { key: 'cost', header: t('colNpcCost'), align: 'right', render: (f) => <span title={coins(f.cost)}>{compact(f.cost)}</span>, sortValue: (f) => f.cost },
+    { key: 'profit', header: t('colNpcProfit'), align: 'right', render: (f) => <span className="pos strong" title={coins(f.profit)}>{compact(f.profit)}</span>, sortValue: (f) => f.profit },
   ];
 }

@@ -1,6 +1,6 @@
 import rawNames from '../data/item-names.json';
 
-type NameEntry = [name: string, tier?: string];
+type NameEntry = [name: string, tier?: string, npcSellPrice?: number];
 const KNOWN = rawNames as unknown as Record<string, NameEntry>;
 
 export type Tier =
@@ -60,6 +60,12 @@ export function itemName(id: string): string {
 
 export function itemTier(id: string): Tier | undefined {
   return KNOWN[id]?.[1] as Tier | undefined;
+}
+
+/** Coins an NPC pays per unit, when the item can be sold to NPCs. */
+export function itemNpcPrice(id: string): number | undefined {
+  const n = KNOWN[id]?.[2];
+  return typeof n === 'number' && n > 0 ? n : undefined;
 }
 
 export function isEnchantmentBook(id: string): boolean {

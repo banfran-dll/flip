@@ -23,11 +23,12 @@ interface Props {
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onClose: () => void;
+  onTrack: (side: 'buy' | 'sell', price: number, amount: number) => void;
   t: T;
   lang: Lang;
 }
 
-export function ItemDetail({ product, flip, taxRate, budget, history, isFavorite, onToggleFavorite, onClose, t, lang }: Props) {
+export function ItemDetail({ product, flip, taxRate, budget, history, isFavorite, onToggleFavorite, onClose, onTrack, t, lang }: Props) {
   const id = product.product_id;
   const q = product.quick_status;
   const [qty, setQty] = useState<number>(flip?.units ?? 64);
@@ -93,7 +94,14 @@ export function ItemDetail({ product, flip, taxRate, budget, history, isFavorite
             <Row k={t('colSellOffer')} v={coins(flip.sellOfferPrice)} />
             <Row k={t('colProfitUnit')} v={<span className={flip.profitPerUnit > 0 ? 'pos' : 'neg'}>{coins(flip.profitPerUnit)}</span>} />
             <Row k={t('colMargin')} v={pct(flip.marginPct)} />
-            <Row k={t('colFlow')} v={`${compact(flip.instaSellsPerHour)} → ${compact(flip.instaBuysPerHour)}`} />
+            <Row
+              k={t('colFlow')}
+              v={
+                flip.liveWeight > 0
+                  ? `${compact(flip.instaSellsPerHour)} → ${compact(flip.instaBuysPerHour)} (${t('liveRate')} ${Math.round(flip.liveWeight * 100)}% · ${t('weeklyRate')} ${compact(flip.weeklyInstaSellsPerHour)} → ${compact(flip.weeklyInstaBuysPerHour)})`
+                  : `${compact(flip.instaSellsPerHour)} → ${compact(flip.instaBuysPerHour)}`
+              }
+            />
             <Row k={t('colProfitHour')} v={<span className="pos strong">{compact(flip.profitPerHour)}</span>} />
             <Row k={t('colOrders')} v={`${integer(flip.competingBuyOrders)} / ${integer(flip.competingSellOffers)}`} />
           </div>
@@ -118,6 +126,16 @@ export function ItemDetail({ product, flip, taxRate, budget, history, isFavorite
             {t('maxOrder')}
           </button>
         </div>
+        {flip && (
+          <div className="field__row track-row">
+            <button type="button" className="btn btn--sm" onClick={() => onTrack('buy', flip.buyOrderPrice, qty)}>
+              {t('trackBuyAt', { p: coins(flip.buyOrderPrice) })}
+            </button>
+            <button type="button" className="btn btn--sm" onClick={() => onTrack('sell', flip.sellOfferPrice, qty)}>
+              {t('trackSellAt', { p: coins(flip.sellOfferPrice) })}
+            </button>
+          </div>
+        )}
         {plan && (
           <div className="kv">
             <Row k={t('cost')} v={compact(plan.cost)} title={coins(plan.cost)} />

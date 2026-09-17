@@ -20,15 +20,15 @@ export const DEFAULT_ALERT_RULE: AlertRule = {
   cleanOnly: true,
 };
 
+export type AlertKind = 'flip' | 'order' | 'npc';
+
 export interface AlertEvent {
-  id: string;
+  kind: AlertKind;
+  /** Product id the event is about (opens the detail panel when clicked). */
+  itemId: string;
   at: number;
-  buyOrderPrice: number;
-  sellOfferPrice: number;
-  marginPct: number;
-  profitPerHour: number;
-  score: number;
-  units: number;
+  title: string;
+  body: string;
 }
 
 export function matchesRule(f: ScoredFlip, rule: AlertRule, favorites: ReadonlySet<string>): boolean {
@@ -60,15 +60,3 @@ export function newMatches(
   return { fresh, matching };
 }
 
-export function toEvent(f: ScoredFlip, at: number): AlertEvent {
-  return {
-    id: f.id,
-    at,
-    buyOrderPrice: f.buyOrderPrice,
-    sellOfferPrice: f.sellOfferPrice,
-    marginPct: f.marginPct,
-    profitPerHour: f.profitPerHour,
-    score: f.score,
-    units: f.units,
-  };
-}

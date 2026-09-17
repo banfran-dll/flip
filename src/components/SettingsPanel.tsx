@@ -57,6 +57,11 @@ export function SettingsPanel({ settings, onChange, onTestAlert, notificationPer
           </div>
         </div>
 
+        <label className="checkbox">
+          <input type="checkbox" checked={settings.useLiveRates} onChange={(e) => set('useLiveRates', e.target.checked)} />
+          <span>{t('useLiveRates')}</span>
+        </label>
+        <p className="field__hint">{t('useLiveRatesHint')}</p>
         <label className="field">
           <span className="field__label">{t('minCycle')}</span>
           <NumField className="input" value={settings.minCycleMinutes} onChange={(n) => set('minCycleMinutes', Math.max(0, n))} />

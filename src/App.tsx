@@ -1,32 +1,38 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertToasts } from './components/AlertToasts';
+import { OrdersPanel, type OrderRow } from './components/OrdersPanel';
 import { Header } from './components/Header';
 import { TopPicks } from './components/TopPicks';
 import { SettingsPanel } from './components/SettingsPanel';
 import { DataTable } from './components/DataTable';
 import { ItemDetail } from './components/ItemDetail';
-import { flipColumns, lookupColumns, type LookupRow } from './components/columns';
+import { flipColumns, lookupColumns, npcColumns, type LookupRow } from './components/columns';
 import { useBazaar } from './hooks/useBazaar';
 import { useLocalState } from './hooks/useLocalState';
 import { useNow } from './hooks/useNow';
 import { useT } from './hooks/useT';
 import type { Lang } from './i18n';
-import { newMatches, toEvent, type AlertEvent } from './lib/alerts';
-import { computeAllFlips, rankFlips, type FlipResult } from './lib/flip';
+import { newMatches, type AlertEvent } from './lib/alerts';
+import type { BazaarProduct } from './api/bazaar';
+import { HOURS_PER_WEEK, computeAllFlips, rankFlips, type FlipResult } from './lib/flip';
 import { coins, compact, pct } from './lib/format';
 import { PriceHistory } from './lib/history';
-import { itemName } from './lib/names';
+import { itemName, itemNpcPrice } from './lib/names';
+import { computeAllNpcFlips } from './lib/npc';
+import { ATTENTION_STATES, IN_BOOK_STATES, evaluateOrder, newOrderId, type OrderState, type TrackedOrder } from './lib/orders';
+import { blendRates, liveRates } from './lib/rates';
 import { computeSignals, scoreFlip, type ScoredFlip } from './lib/signals';
 import { playAlertSound } from './lib/sound';
 import { matchesQuery, scoreMatch } from './lib/search';
 import { DEFAULT_SETTINGS, toFlipFilters, toFlipSettings, type AppSettings } from './settings';
 
-type Tab = 'flips' | 'lookup' | 'favorites';
+type Tab = 'flips' | 'lookup' | 'favorites' | 'orders' | 'npc';
 
 export default function App() {
   const [lang, setLang] = useLocalState<Lang>('bzflip.lang', navigator.language.startsWith('ko') ? 'ko' : 'en');
   const [settings, setSettings] = useLocalState<AppSettings>('bzflip.settings', DEFAULT_SETTINGS);
   const [favoriteList, setFavoriteList] = useLocalState<string[]>('bzflip.favorites', []);
+  const [orders, setOrders] = useLocalState<TrackedOrder[]>('bzflip.orders', []);
   const [tab, setTab] = useState<Tab>('flips');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -56,8 +62,15 @@ export default function App() {
     if (!snapshot) return [];
     const history = historyRef.current;
     history.record(snapshot);
-    return computeAllFlips(snapshot.products, flipSettings).map((f) => scoreFlip(f, computeSignals(history.get(f.id), flipSettings.taxRate)));
-  }, [snapshot, flipSettings]);
+    const ratesFor = settings.useLiveRates
+      ? (p: BazaarProduct) => {
+          const q = p.quick_status;
+          const r = blendRates(q.sellMovingWeek / HOURS_PER_WEEK, q.buyMovingWeek / HOURS_PER_WEEK, liveRates(history.get(p.product_id)));
+          return r.liveWeight > 0 ? r : undefined;
+        }
+      : undefined;
+    return computeAllFlips(snapshot.products, flipSettings, ratesFor).map((f) => scoreFlip(f, computeSignals(history.get(f.id), flipSettings.taxRate)));
+  }, [snapshot, flipSettings, settings.useLiveRates]);
   const flipsById = useMemo(() => new Map(allFlips.map((f) => [f.id, f])), [allFlips]);
 
   // Flip results of the previous distinct snapshot, used to flash cells that moved.
@@ -88,7 +101,28 @@ export default function App() {
     return searchFilter(rows, (r) => r.id);
   }, [snapshot, flipsById, query]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const npcRows = useMemo(() => {
+    if (!snapshot) return [];
+    return searchFilter(computeAllNpcFlips(snapshot.products, itemNpcPrice, settings.budget), (f) => f.id);
+  }, [snapshot, settings.budget, query]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const orderRows = useMemo<OrderRow[]>(
+    () =>
+      orders.map((o) => {
+        const product = snapshot?.products[o.itemId];
+        const f = flipsById.get(o.itemId);
+        const q = product?.quick_status;
+        const rates = f
+          ? { instaSellsPerHour: f.instaSellsPerHour, instaBuysPerHour: f.instaBuysPerHour }
+          : { instaSellsPerHour: (q?.sellMovingWeek ?? 0) / HOURS_PER_WEEK, instaBuysPerHour: (q?.buyMovingWeek ?? 0) / HOURS_PER_WEEK };
+        return { order: o, status: evaluateOrder(o, product, rates, settings.taxRate) };
+      }),
+    [orders, snapshot, flipsById, settings.taxRate],
+  );
+  const ordersNeedingAttention = orderRows.filter((r) => r.status.state === 'outbid' || r.status.state === 'undercut').length;
+
   const flipCols = useMemo(() => flipColumns(t, lang, favorites, changeCtx), [t, lang, favorites, changeCtx]);
+  const npcCols = useMemo(() => npcColumns(t, favorites), [t, favorites]);
   const lookupCols = useMemo(() => lookupColumns(t, favorites, changeCtx), [t, favorites, changeCtx]);
 
   const selectedProduct = selectedId && snapshot ? snapshot.products[selectedId] ?? null : null;
@@ -109,12 +143,44 @@ export default function App() {
       return;
     }
     if (fresh.length === 0) return;
-    const at = Date.now();
-    setAlertLog((log) => [...fresh.map((f) => toEvent(f, at)), ...log].slice(0, 30));
-    if (settings.alerts.sound) playAlertSound();
-    notify(fresh, t);
+    pushAlerts(fresh.map((f) => flipEvent(f, t)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot?.lastUpdated, rankedFlips, settings.alerts, favorites]);
+
+  // Order tracking: notify when an order enters an attention state (outbid / undercut / filled).
+  const orderStatesRef = useRef<Map<string, OrderState>>(new Map());
+  useEffect(() => {
+    if (!snapshot) return;
+    const seen = orderStatesRef.current;
+    const events: AlertEvent[] = [];
+    const live = new Set<string>();
+    for (const { order, status } of orderRows) {
+      live.add(order.id);
+      const prev = seen.get(order.id);
+      seen.set(order.id, status.state);
+      if (prev === undefined || prev === status.state || !ATTENTION_STATES.has(status.state)) continue;
+      const title = `${t(status.state === 'outbid' ? 'orderAlertOutbid' : status.state === 'undercut' ? 'orderAlertUndercut' : 'orderAlertFilled')}: ${itemName(order.itemId)}`;
+      const body =
+        status.state === 'filled'
+          ? t('orderAlertFilledBody', { mine: coins(order.price) })
+          : t('orderAlertBody', { mine: coins(order.price), best: coins(status.bestPrice), relist: coins(status.relistPrice) });
+      events.push({ kind: 'order', itemId: order.itemId, at: Date.now(), title, body });
+    }
+    for (const id of [...seen.keys()]) if (!live.has(id)) seen.delete(id);
+    const firstSeen = orderRows.filter((r) => !r.order.seenAt && IN_BOOK_STATES.has(r.status.state)).map((r) => r.order.id);
+    if (firstSeen.length > 0) {
+      const at = Date.now();
+      setOrders((list) => list.map((o) => (firstSeen.includes(o.id) && !o.seenAt ? { ...o, seenAt: at } : o)));
+    }
+    if (events.length > 0) pushAlerts(events);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot?.lastUpdated, orderRows]);
+
+  function pushAlerts(events: AlertEvent[]) {
+    setAlertLog((log) => [...events, ...log].slice(0, 30));
+    if (settings.alerts.sound) playAlertSound();
+    notify(events, t);
+  }
 
   const requestPermission = () => {
     if (typeof Notification === 'undefined') return;
@@ -128,9 +194,14 @@ export default function App() {
   const testAlert = () => {
     const sample = rankedFlips[0];
     if (!sample) return;
-    setAlertLog((log) => [toEvent(sample, Date.now()), ...log].slice(0, 30));
-    if (settings.alerts.sound) playAlertSound();
-    notify([sample], t);
+    pushAlerts([flipEvent(sample, t)]);
+  };
+
+  const addOrder = (order: TrackedOrder) => setOrders((list) => [order, ...list]);
+  const trackFromDetail = (itemId: string, side: 'buy' | 'sell', price: number, amount: number) => {
+    addOrder({ id: newOrderId(), itemId, side, price, amount: Math.max(1, Math.floor(amount)), createdAt: Date.now() });
+    setTab('orders');
+    setSelectedId(null);
   };
 
   useEffect(() => {
@@ -185,6 +256,8 @@ export default function App() {
             <TabButton active={tab === 'flips'} onClick={() => setTab('flips')} label={t('tabFlips')} count={flipRows.length} />
             <TabButton active={tab === 'favorites'} onClick={() => setTab('favorites')} label={t('tabFavorites')} count={favoriteRows.length} />
             <TabButton active={tab === 'lookup'} onClick={() => setTab('lookup')} label={t('tabLookup')} count={lookupRows.length} />
+            <TabButton active={tab === 'npc'} onClick={() => setTab('npc')} label={t('tabNpc')} count={npcRows.length} highlight={npcRows.length > 0} />
+            <TabButton active={tab === 'orders'} onClick={() => setTab('orders')} label={t('tabOrders')} count={orders.length} highlight={ordersNeedingAttention > 0} />
           </nav>
 
           {tab === 'flips' && <TopPicks picks={flipRows.slice(0, 3)} onSelect={setSelectedId} t={t} lang={lang} />}
@@ -231,6 +304,36 @@ export default function App() {
             />
           )}
 
+          {tab === 'npc' && (
+            <>
+              <p className="hint">{t('npcHint')}</p>
+              <DataTable
+                key="npc"
+                columns={npcCols}
+                rows={npcRows}
+                rowKey={(f) => f.id}
+                defaultSort={{ key: 'profit', dir: 'desc' }}
+                onRowClick={(f) => setSelectedId(f.id)}
+                selectedKey={selectedId}
+                emptyMessage={snapshot ? t('npcEmpty') : t('loading')}
+                moreLabel={moreLabel}
+              />
+            </>
+          )}
+          {tab === 'orders' && (
+            <OrdersPanel
+              rows={orderRows}
+              products={snapshot?.products ?? null}
+              flipsById={flipsById}
+              onAdd={addOrder}
+              onUpdatePrice={(id, price) => setOrders((list) => list.map((o) => (o.id === id ? { ...o, price } : o)))}
+              onRemove={(id) => setOrders((list) => list.filter((o) => o.id !== id))}
+              onOpen={setSelectedId}
+              t={t}
+              lang={lang}
+            />
+          )}
+
           <footer className="footer">{t('disclaimer')}</footer>
         </main>
 
@@ -246,6 +349,7 @@ export default function App() {
               isFavorite={favorites.has(selectedProduct.product_id)}
               onToggleFavorite={() => toggleFavorite(selectedProduct.product_id)}
               onClose={() => setSelectedId(null)}
+              onTrack={(side, price, amount) => trackFromDetail(selectedProduct.product_id, side, price, amount)}
               t={t}
               lang={lang}
             />
@@ -257,7 +361,7 @@ export default function App() {
         events={alertLog}
         now={now}
         onOpen={(id) => setSelectedId(id)}
-        onDismiss={(at, id) => setAlertLog((log) => log.filter((e) => !(e.at === at && e.id === id)))}
+        onDismiss={(at, id) => setAlertLog((log) => log.filter((e) => !(e.at === at && e.itemId === id)))}
         onClear={() => setAlertLog([])}
         t={t}
         lang={lang}
@@ -266,30 +370,35 @@ export default function App() {
   );
 }
 
-/** Browser notification for up to three fresh flips; more than that is summarised. */
-function notify(fresh: ScoredFlip[], t: ReturnType<typeof useT>) {
+function flipEvent(f: ScoredFlip, t: ReturnType<typeof useT>): AlertEvent {
+  return {
+    kind: 'flip',
+    itemId: f.id,
+    at: Date.now(),
+    title: `${t('alertNew')}: ${itemName(f.id)}`,
+    body: t('alertBody', { buy: coins(f.buyOrderPrice), sell: coins(f.sellOfferPrice), margin: pct(f.marginPct), perHour: compact(f.profitPerHour) }),
+  };
+}
+
+/** Browser notifications for up to three events; more than that is summarised. */
+function notify(events: AlertEvent[], t: ReturnType<typeof useT>) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
   try {
-    if (fresh.length > 3) {
-      new Notification(t('alertMany', { n: fresh.length }), { body: fresh.map((f) => itemName(f.id)).join(', ') });
+    if (events.length > 3) {
+      new Notification(t('alertMany', { n: events.length }), { body: events.map((e) => itemName(e.itemId)).join(', ') });
       return;
     }
-    for (const f of fresh) {
-      new Notification(`${t('alertNew')}: ${itemName(f.id)}`, {
-        body: t('alertBody', { buy: coins(f.buyOrderPrice), sell: coins(f.sellOfferPrice), margin: pct(f.marginPct), perHour: compact(f.profitPerHour) }),
-        tag: `bzflip-${f.id}`,
-      });
-    }
+    for (const e of events) new Notification(e.title, { body: e.body, tag: `bzflip-${e.kind}-${e.itemId}` });
   } catch {
     /* notifications unavailable */
   }
 }
 
-function TabButton({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count: number }) {
+function TabButton({ active, onClick, label, count, highlight = false }: { active: boolean; onClick: () => void; label: string; count: number; highlight?: boolean }) {
   return (
     <button type="button" role="tab" aria-selected={active} className={`tab ${active ? 'is-active' : ''}`} onClick={onClick}>
       {label}
-      <span className="tab__count">{count.toLocaleString('en-US')}</span>
+      <span className={`tab__count ${highlight ? 'tab__count--hot' : ''}`}>{count.toLocaleString('en-US')}</span>
     </button>
   );
 }

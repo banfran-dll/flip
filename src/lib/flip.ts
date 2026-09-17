@@ -1,4 +1,5 @@
 import type { BazaarProduct, OrderLevel } from '../api/bazaar';
+import type { RateOverride } from './rates';
 
 /** Default bazaar sales tax (1.25%). */
 export const DEFAULT_TAX_RATE = 0.0125;
@@ -69,10 +70,17 @@ export interface FlipResult {
   profitPerUnit: number;
   /** profitPerUnit / buyOrderPrice, in percent. */
   marginPct: number;
-  /** Units instasold per hour; these fill OUR buy orders. */
+  /** Units instasold per hour; these fill OUR buy orders. Blended weekly/live (see rates.ts). */
   instaSellsPerHour: number;
   /** Units instabought per hour; these fill OUR sell offers. */
   instaBuysPerHour: number;
+  /** 7-day averages, for reference. */
+  weeklyInstaSellsPerHour: number;
+  weeklyInstaBuysPerHour: number;
+  /** Share of the rate that comes from live snapshot deltas (0 = weekly only). */
+  liveWeight: number;
+  /** Live throughput ÷ weekly average; NaN until enough history. >1 means busier than usual. */
+  activity: number;
   /** Sustainable round-trip throughput: harmonic combination of the two sides. */
   flowPerHour: number;
   /** How many units the budget buys (capped by maxOrderSize). */
@@ -99,7 +107,7 @@ export interface FlipResult {
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /** Compute every flip metric for one product. Returns null when no flip is possible. */
-export function computeFlip(product: BazaarProduct, settings: FlipSettings = DEFAULT_FLIP_SETTINGS): FlipResult | null {
+export function computeFlip(product: BazaarProduct, settings: FlipSettings = DEFAULT_FLIP_SETTINGS, rates?: RateOverride): FlipResult | null {
   const q = product.quick_status;
   const bestSellOffer = product.buy_summary[0];
   const bestBuyOrder = product.sell_summary[0];
@@ -115,8 +123,10 @@ export function computeFlip(product: BazaarProduct, settings: FlipSettings = DEF
   const profitPerUnit = sellOfferPrice - taxPerUnit - buyOrderPrice;
   const marginPct = buyOrderPrice > 0 ? (profitPerUnit / buyOrderPrice) * 100 : 0;
 
-  const instaSellsPerHour = q.sellMovingWeek / HOURS_PER_WEEK;
-  const instaBuysPerHour = q.buyMovingWeek / HOURS_PER_WEEK;
+  const weeklyInstaSellsPerHour = q.sellMovingWeek / HOURS_PER_WEEK;
+  const weeklyInstaBuysPerHour = q.buyMovingWeek / HOURS_PER_WEEK;
+  const instaSellsPerHour = rates ? rates.instaSellsPerHour : weeklyInstaSellsPerHour;
+  const instaBuysPerHour = rates ? rates.instaBuysPerHour : weeklyInstaBuysPerHour;
   const flowPerHour =
     instaSellsPerHour > 0 && instaBuysPerHour > 0
       ? (instaSellsPerHour * instaBuysPerHour) / (instaSellsPerHour + instaBuysPerHour)
@@ -155,6 +165,10 @@ export function computeFlip(product: BazaarProduct, settings: FlipSettings = DEF
     marginPct,
     instaSellsPerHour,
     instaBuysPerHour,
+    weeklyInstaSellsPerHour,
+    weeklyInstaBuysPerHour,
+    liveWeight: rates?.liveWeight ?? 0,
+    activity: rates?.activity ?? NaN,
     flowPerHour,
     units,
     cost,
@@ -217,10 +231,14 @@ export function passesFilters(f: FlipResult, filters: FlipFilters): boolean {
 }
 
 /** Compute flips for every product; unflippable products are dropped. */
-export function computeAllFlips(products: Record<string, BazaarProduct>, settings: FlipSettings): FlipResult[] {
+export function computeAllFlips(
+  products: Record<string, BazaarProduct>,
+  settings: FlipSettings,
+  ratesFor?: (product: BazaarProduct) => RateOverride | undefined,
+): FlipResult[] {
   const out: FlipResult[] = [];
   for (const p of Object.values(products)) {
-    const f = computeFlip(p, settings);
+    const f = computeFlip(p, settings, ratesFor?.(p));
     if (f) out.push(f);
   }
   return out;

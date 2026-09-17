@@ -6,6 +6,10 @@ export interface PricePoint {
   buy: number;
   /** Highest buy order (instasell price). */
   sell: number;
+  /** quick_status.buyMovingWeek: a counter that grows with every instabuy (expiry drops are rare, bucketed). */
+  bmw: number;
+  /** quick_status.sellMovingWeek: grows with every instasell. */
+  smw: number;
 }
 
 /**
@@ -31,7 +35,7 @@ export class PriceHistory {
         arr = [];
         this.points.set(p.product_id, arr);
       }
-      arr.push({ t: snapshot.lastUpdated, buy: buy ?? NaN, sell: sell ?? NaN });
+      arr.push({ t: snapshot.lastUpdated, buy: buy ?? NaN, sell: sell ?? NaN, bmw: p.quick_status.buyMovingWeek, smw: p.quick_status.sellMovingWeek });
       if (arr.length > this.maxPoints) arr.splice(0, arr.length - this.maxPoints);
     }
   }

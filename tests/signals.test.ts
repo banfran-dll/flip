@@ -5,7 +5,7 @@ import { computeSignals, confidenceParts, marginAt, scoreFlip, EMPTY_SIGNALS } f
 import { DEFAULT_ALERT_RULE, matchesRule, newMatches } from '../src/lib/alerts';
 
 const TAX = 0.0125;
-const pt = (t: number, buy: number, sell: number): PricePoint => ({ t, buy, sell });
+const pt = (t: number, buy: number, sell: number): PricePoint => ({ t, buy, sell, bmw: 0, smw: 0 });
 
 describe('marginAt', () => {
   it('matches computeFlip for the same top of book', () => {

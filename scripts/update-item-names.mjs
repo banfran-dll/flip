@@ -3,7 +3,7 @@
  * Regenerates src/data/item-names.json.
  *
  * Pulls the current list of bazaar products and the SkyBlock item catalogue
- * from the public Hypixel API and writes a compact { PRODUCT_ID: [name, tier] }
+ * from the public Hypixel API and writes a compact { PRODUCT_ID: [name, tier, npcSellPrice] }
  * map for every product that the item catalogue knows about. Products the
  * catalogue does not list (enchantment books, attribute shards, essence, …)
  * are omitted here and get a generated name at runtime (see src/lib/names.ts).
@@ -57,7 +57,8 @@ for (const id of Object.keys(bazaar.products).sort()) {
   const it = catalogue.get(id);
   if (!it) { missing++; continue; }
   const entry = [clean(it.name)];
-  if (it.tier) entry.push(it.tier);
+  if (it.tier || it.npc_sell_price > 0) entry.push(it.tier ?? '');
+  if (it.npc_sell_price > 0) entry.push(it.npc_sell_price);
   out[id] = entry;
 }
 

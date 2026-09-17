@@ -16,6 +16,8 @@ export interface AppSettings {
   /** Polling period in 'interval' mode. */
   refreshSec: number;
   alerts: AlertRule;
+  /** Blend measured recent trade rates into fill-time estimates. */
+  useLiveRates: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -31,6 +33,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   refreshMode: 'live',
   refreshSec: 30,
   alerts: DEFAULT_ALERT_RULE,
+  useLiveRates: true,
 };
 
 export const TAX_PRESETS = [
