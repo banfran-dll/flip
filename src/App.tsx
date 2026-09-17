@@ -6,7 +6,6 @@ import { ItemDetail } from './components/ItemDetail';
 import { flipColumns, lookupColumns, type LookupRow } from './components/columns';
 import { useBazaar } from './hooks/useBazaar';
 import { useLocalState } from './hooks/useLocalState';
-import { useNow } from './hooks/useNow';
 import { useT } from './hooks/useT';
 import type { Lang } from './i18n';
 import { computeAllFlips, rankFlips, type FlipResult } from './lib/flip';
@@ -26,8 +25,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const t = useT(lang);
-  const now = useNow(1000);
-  const { snapshot, error, loading, fetchedAt, refresh } = useBazaar(settings.refreshSec);
+  const { snapshot, error, loading, fetchedAt, nextExpectedAt, refresh } = useBazaar({ mode: settings.refreshMode, intervalSec: settings.refreshSec });
 
   const historyRef = useRef(new PriceHistory());
   useEffect(() => {
@@ -44,6 +42,14 @@ export default function App() {
 
   const allFlips = useMemo(() => (snapshot ? computeAllFlips(snapshot.products, flipSettings) : []), [snapshot, flipSettings]);
   const flipsById = useMemo(() => new Map(allFlips.map((f) => [f.id, f])), [allFlips]);
+
+  // Flip results of the previous distinct snapshot, used to flash cells that moved.
+  const prevRef = useRef<{ stamp: number; flips: Map<string, FlipResult> }>({ stamp: 0, flips: new Map() });
+  const lastRef = useRef<{ stamp: number; flips: Map<string, FlipResult> } | null>(null);
+  const stamp = snapshot?.lastUpdated ?? 0;
+  if (lastRef.current && lastRef.current.stamp !== stamp) prevRef.current = lastRef.current;
+  lastRef.current = { stamp, flips: flipsById };
+  const changeCtx = useMemo(() => ({ prev: prevRef.current.flips, stamp }), [stamp]);
 
   const rankedFlips = useMemo(() => rankFlips(allFlips, toFlipFilters(settings)), [allFlips, settings]);
 
@@ -65,8 +71,8 @@ export default function App() {
     return searchFilter(rows, (r) => r.id);
   }, [snapshot, flipsById, query]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const flipCols = useMemo(() => flipColumns(t, lang, favorites), [t, lang, favorites]);
-  const lookupCols = useMemo(() => lookupColumns(t, favorites), [t, favorites]);
+  const flipCols = useMemo(() => flipColumns(t, lang, favorites, changeCtx), [t, lang, favorites, changeCtx]);
+  const lookupCols = useMemo(() => lookupColumns(t, favorites, changeCtx), [t, favorites, changeCtx]);
 
   const selectedProduct = selectedId && snapshot ? snapshot.products[selectedId] ?? null : null;
   const toggleFavorite = (id: string) =>
@@ -93,7 +99,8 @@ export default function App() {
         error={error}
         fetchedAt={fetchedAt}
         lastUpdated={snapshot?.lastUpdated ?? null}
-        now={now}
+        nextExpectedAt={nextExpectedAt}
+        live={settings.refreshMode === 'live'}
         onRefresh={() => void refresh()}
         onToggleLang={() => setLang((l) => (l === 'ko' ? 'en' : 'ko'))}
         onToggleSettings={() => setSettingsOpen((o) => !o)}

@@ -52,7 +52,11 @@ export interface BazaarSnapshot {
 }
 
 export async function fetchBazaar(signal?: AbortSignal): Promise<BazaarSnapshot> {
-  const res = await fetch(BAZAAR_URL, { signal, headers: { accept: 'application/json' } });
+  // The endpoint is served with `cache-control: max-age=60`, which would let the
+  // browser answer our polls from its own cache for a minute. `no-cache` forces a
+  // conditional revalidation instead: the CDN replies 304 (no body) until a new
+  // snapshot exists, then 200 with the fresh payload.
+  const res = await fetch(BAZAAR_URL, { signal, cache: 'no-cache', headers: { accept: 'application/json' } });
   if (!res.ok) throw new Error(`Hypixel API responded with HTTP ${res.status}`);
   const data = (await res.json()) as Partial<BazaarSnapshot>;
   if (!data.success || !data.products) throw new Error('Hypixel API returned an unsuccessful payload');

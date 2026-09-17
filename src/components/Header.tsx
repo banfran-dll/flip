@@ -1,5 +1,6 @@
 import type { T } from '../hooks/useT';
 import type { Lang } from '../i18n';
+import { useNow } from '../hooks/useNow';
 import { ago } from '../lib/format';
 
 interface Props {
@@ -11,13 +12,16 @@ interface Props {
   error: string | null;
   fetchedAt: number | null;
   lastUpdated: number | null;
-  now: number;
+  nextExpectedAt: number | null;
+  live: boolean;
   onRefresh: () => void;
   onToggleLang: () => void;
   onToggleSettings: () => void;
 }
 
-export function Header({ t, lang, query, onQuery, loading, error, fetchedAt, lastUpdated, now, onRefresh, onToggleLang, onToggleSettings }: Props) {
+export function Header({ t, lang, query, onQuery, loading, error, fetchedAt, lastUpdated, nextExpectedAt, live, onRefresh, onToggleLang, onToggleSettings }: Props) {
+  const now = useNow(1000);
+  const countdown = nextExpectedAt == null ? null : Math.ceil((nextExpectedAt - now) / 1000);
   return (
     <header className="header">
       <div className="header__brand">
@@ -49,8 +53,13 @@ export function Header({ t, lang, query, onQuery, loading, error, fetchedAt, las
         ) : fetchedAt ? (
           <span className="status">
             <span className={`status__dot ${loading ? 'is-loading' : ''}`} />
+            {live && <span className="status__live">{t('live')}</span>}
             {lastUpdated && <span>{t('dataAge', { age: ago((now - lastUpdated) / 1000, lang) })}</span>}
-            <span className="muted">· {t('fetchedAge', { age: ago((now - fetchedAt) / 1000, lang) })}</span>
+            {live && countdown != null ? (
+              <span className="muted">· {countdown > 0 ? t('nextSnapshot', { s: countdown }) : t('snapshotDue')}</span>
+            ) : (
+              <span className="muted">· {t('fetchedAge', { age: ago((now - fetchedAt) / 1000, lang) })}</span>
+            )}
           </span>
         ) : (
           <span className="status">{t('loading')}</span>

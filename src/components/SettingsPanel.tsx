@@ -94,9 +94,19 @@ export function SettingsPanel({ settings, onChange, t }: Props) {
 
       <section className="settings__group">
         <label className="field">
-          <span className="field__label">{t('refreshInterval')}</span>
-          <NumField className="input" value={settings.refreshSec} onChange={(n) => set('refreshSec', Math.max(10, Math.round(n)))} />
+          <span className="field__label">{t('refreshMode')}</span>
+          <select className="input" value={settings.refreshMode} onChange={(e) => set('refreshMode', e.target.value as AppSettings['refreshMode'])}>
+            <option value="live">{t('refreshModeLive')}</option>
+            <option value="interval">{t('refreshModeInterval')}</option>
+          </select>
+          <span className="field__hint">{t('refreshModeHint')}</span>
         </label>
+        {settings.refreshMode === 'interval' && (
+          <label className="field">
+            <span className="field__label">{t('refreshInterval')}</span>
+            <NumField className="input" value={settings.refreshSec} onChange={(n) => set('refreshSec', Math.max(5, Math.round(n)))} />
+          </label>
+        )}
         <button type="button" className="btn btn--ghost" onClick={() => onChange({ ...DEFAULT_SETTINGS })}>
           {t('reset')}
         </button>

@@ -65,6 +65,15 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 .status__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pos); box-shadow: 0 0 8px var(--pos); }
 .status__dot.is-loading { background: var(--warn); box-shadow: 0 0 8px var(--warn); animation: pulse 1s infinite alternate; }
 @keyframes pulse { from { opacity: 0.4; } to { opacity: 1; } }
+.status__live { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--pos); border: 1px solid rgba(74, 222, 128, 0.5); border-radius: 4px; padding: 0 5px; }
+
+/* value moved since the previous snapshot */
+.chg { border-radius: 4px; padding: 0 3px; margin: 0 -3px; animation: flash 1.8s ease-out; }
+.chg--up { animation-name: flash-up; }
+.chg--down { animation-name: flash-down; }
+@keyframes flash-up { 0% { background: rgba(74, 222, 128, 0.45); } 100% { background: rgba(74, 222, 128, 0); } }
+@keyframes flash-down { 0% { background: rgba(248, 113, 113, 0.45); } 100% { background: rgba(248, 113, 113, 0); } }
+@keyframes flash { 0% { background: rgba(255, 255, 255, 0.2); } 100% { background: transparent; } }
 
 /* ---------- inputs & buttons ---------- */
 .input {

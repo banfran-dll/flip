@@ -46,7 +46,14 @@ const ko = {
   hideFlagsAll: '경고까지 모두 숨기기',
   hideFlagsNone: '모두 표시',
   hideFlagsHint: '위험 = 호가 없음·얇은 호가·이상치·비정상 스프레드 / 경고 = 거래량 부족·불균형',
+  refreshMode: '갱신 방식',
+  refreshModeLive: '실시간 (새 스냅샷 즉시)',
+  refreshModeInterval: '고정 간격',
+  refreshModeHint: 'Hypixel API는 약 20초마다 새 스냅샷을 냅니다. 실시간 모드는 그 시점을 학습해 스냅샷 직후 1~3초 안에 받아옵니다.',
   refreshInterval: '갱신 주기 (초)',
+  live: 'LIVE',
+  nextSnapshot: '다음 ~{s}초',
+  snapshotDue: '스냅샷 확인 중…',
   reset: '기본값으로 초기화',
 
   // flip columns
@@ -137,7 +144,8 @@ const ko = {
   flag_EMPTY_BOOK: '호가 없음',
   flagTip_EMPTY_BOOK: '한쪽 주문이 전혀 없음',
 
-  disclaimer: '데이터: Hypixel 공개 API (약 1분 간격 갱신). 모든 수치는 추정치이며 실제 체결·이익을 보장하지 않습니다.',
+  disclaimer: '데이터: Hypixel 공개 API (약 20초마다 새 스냅샷). 모든 수치는 추정치이며 실제 체결·이익을 보장하지 않습니다.',
+  prevValue: '이전 스냅샷',
   perHour: '/h',
   units: '개',
 };
@@ -190,7 +198,14 @@ const en: Dict = {
   hideFlagsAll: 'Hide risky and warnings',
   hideFlagsNone: 'Show everything',
   hideFlagsHint: 'Risky = empty/thin book, outliers, huge spread · Warnings = low volume, imbalance',
+  refreshMode: 'Refresh mode',
+  refreshModeLive: 'Live (right after each new snapshot)',
+  refreshModeInterval: 'Fixed interval',
+  refreshModeHint: 'The Hypixel API publishes a new snapshot about every 20 s. Live mode learns that cadence and fetches within 1–3 s of each snapshot.',
   refreshInterval: 'Refresh interval (s)',
+  live: 'LIVE',
+  nextSnapshot: 'next ~{s}s',
+  snapshotDue: 'checking for snapshot…',
   reset: 'Reset to defaults',
 
   colItem: 'Item',
@@ -277,7 +292,8 @@ const en: Dict = {
   flag_EMPTY_BOOK: 'Empty book',
   flagTip_EMPTY_BOOK: 'No orders at all on one side',
 
-  disclaimer: 'Data: public Hypixel API (updates roughly every minute). All figures are estimates and do not guarantee fills or profit.',
+  disclaimer: 'Data: public Hypixel API (new snapshot about every 20 s). All figures are estimates and do not guarantee fills or profit.',
+  prevValue: 'Previous snapshot',
   perHour: '/h',
   units: '',
 };

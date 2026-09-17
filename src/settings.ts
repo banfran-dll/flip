@@ -1,3 +1,4 @@
+import type { RefreshMode } from './hooks/useBazaar';
 import { DEFAULT_FLIP_FILTERS, DEFAULT_FLIP_SETTINGS, MAX_ORDER_SIZE, type FlipFilters, type FlipSettings, type HideFlags } from './lib/flip';
 
 export interface AppSettings {
@@ -10,6 +11,8 @@ export interface AppSettings {
   minPrice: number;
   maxPrice: number;
   hideFlags: HideFlags;
+  refreshMode: RefreshMode;
+  /** Polling period in 'interval' mode. */
   refreshSec: number;
 }
 
@@ -23,6 +26,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   minPrice: DEFAULT_FLIP_FILTERS.minPrice,
   maxPrice: DEFAULT_FLIP_FILTERS.maxPrice,
   hideFlags: DEFAULT_FLIP_FILTERS.hideFlags,
+  refreshMode: 'live',
   refreshSec: 30,
 };
 

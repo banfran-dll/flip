@@ -5,6 +5,7 @@ import type { FlipResult } from '../lib/flip';
 import { coins, compact, duration, integer, pct } from '../lib/format';
 import { itemName } from '../lib/names';
 import type { Column } from './DataTable';
+import { Changed } from './Changed';
 import { ItemName } from './ItemName';
 import { RiskBadges } from './RiskBadges';
 
@@ -14,7 +15,22 @@ export interface LookupRow {
   flip: FlipResult | null;
 }
 
-export function flipColumns(t: T, lang: Lang, favorites: ReadonlySet<string>): Column<FlipResult>[] {
+export interface ChangeContext {
+  /** Flip results from the previous distinct snapshot, for change flashes. */
+  prev: ReadonlyMap<string, FlipResult>;
+  /** Identifier of the current snapshot; changes replay the flash animation. */
+  stamp: number;
+}
+
+export function flipColumns(t: T, lang: Lang, favorites: ReadonlySet<string>, ctx: ChangeContext): Column<FlipResult>[] {
+  const chg = (f: FlipResult, pick: (x: FlipResult) => number, node: React.ReactNode, title?: string) => {
+    const p = ctx.prev.get(f.id);
+    return (
+      <Changed value={pick(f)} prev={p ? pick(p) : undefined} stamp={ctx.stamp} title={title ?? (p ? `${t('prevValue')}: ${coins(pick(p))}` : undefined)}>
+        {node}
+      </Changed>
+    );
+  };
   return [
     {
       key: 'item',
@@ -23,14 +39,28 @@ export function flipColumns(t: T, lang: Lang, favorites: ReadonlySet<string>): C
       sortValue: (f) => itemName(f.id),
       className: 'col-item',
     },
-    { key: 'buy', header: t('colBuyOrder'), tip: t('colBuyOrderTip'), align: 'right', render: (f) => coins(f.buyOrderPrice), sortValue: (f) => f.buyOrderPrice },
-    { key: 'sell', header: t('colSellOffer'), tip: t('colSellOfferTip'), align: 'right', render: (f) => coins(f.sellOfferPrice), sortValue: (f) => f.sellOfferPrice },
+    {
+      key: 'buy',
+      header: t('colBuyOrder'),
+      tip: t('colBuyOrderTip'),
+      align: 'right',
+      render: (f) => chg(f, (x) => x.buyOrderPrice, coins(f.buyOrderPrice)),
+      sortValue: (f) => f.buyOrderPrice,
+    },
+    {
+      key: 'sell',
+      header: t('colSellOffer'),
+      tip: t('colSellOfferTip'),
+      align: 'right',
+      render: (f) => chg(f, (x) => x.sellOfferPrice, coins(f.sellOfferPrice)),
+      sortValue: (f) => f.sellOfferPrice,
+    },
     {
       key: 'profitUnit',
       header: t('colProfitUnit'),
       tip: t('colProfitUnitTip'),
       align: 'right',
-      render: (f) => <span className="pos">{coins(f.profitPerUnit)}</span>,
+      render: (f) => chg(f, (x) => x.profitPerUnit, <span className="pos">{coins(f.profitPerUnit)}</span>),
       sortValue: (f) => f.profitPerUnit,
     },
     { key: 'margin', header: t('colMargin'), align: 'right', render: (f) => pct(f.marginPct), sortValue: (f) => f.marginPct },
@@ -62,11 +92,7 @@ export function flipColumns(t: T, lang: Lang, favorites: ReadonlySet<string>): C
       header: t('colProfitHour'),
       tip: t('colProfitHourTip'),
       align: 'right',
-      render: (f) => (
-        <span className="pos strong" title={coins(f.profitPerHour)}>
-          {compact(f.profitPerHour)}
-        </span>
-      ),
+      render: (f) => chg(f, (x) => x.profitPerHour, <span className="pos strong">{compact(f.profitPerHour)}</span>, coins(f.profitPerHour)),
       sortValue: (f) => f.profitPerHour,
     },
     {
@@ -81,8 +107,16 @@ export function flipColumns(t: T, lang: Lang, favorites: ReadonlySet<string>): C
   ];
 }
 
-export function lookupColumns(t: T, favorites: ReadonlySet<string>): Column<LookupRow>[] {
+export function lookupColumns(t: T, favorites: ReadonlySet<string>, ctx: ChangeContext): Column<LookupRow>[] {
   const top = (r: LookupRow, side: 'buy_summary' | 'sell_summary') => r.product[side][0]?.pricePerUnit ?? NaN;
+  const flash = (r: LookupRow, value: number, pick: (x: FlipResult) => number) => {
+    const p = ctx.prev.get(r.id);
+    return (
+      <Changed value={value} prev={p ? pick(p) : undefined} stamp={ctx.stamp} title={p ? `${t('prevValue')}: ${coins(pick(p))}` : undefined}>
+        {Number.isFinite(value) ? coins(value) : '—'}
+      </Changed>
+    );
+  };
   return [
     {
       key: 'item',
@@ -95,14 +129,14 @@ export function lookupColumns(t: T, favorites: ReadonlySet<string>): Column<Look
       key: 'instaBuy',
       header: t('colInstaBuy'),
       align: 'right',
-      render: (r) => (Number.isFinite(top(r, 'buy_summary')) ? coins(top(r, 'buy_summary')) : '—'),
+      render: (r) => flash(r, top(r, 'buy_summary'), (x) => x.instaBuyPrice),
       sortValue: (r) => top(r, 'buy_summary'),
     },
     {
       key: 'instaSell',
       header: t('colInstaSell'),
       align: 'right',
-      render: (r) => (Number.isFinite(top(r, 'sell_summary')) ? coins(top(r, 'sell_summary')) : '—'),
+      render: (r) => flash(r, top(r, 'sell_summary'), (x) => x.instaSellPrice),
       sortValue: (r) => top(r, 'sell_summary'),
     },
     {
