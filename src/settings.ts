@@ -22,6 +22,8 @@ export interface AppSettings {
   orderSlots: number;
   crashMinDropPct: number;
   paperEnabled: boolean;
+  /** Base URL of the optional data server (worker/). Empty = use the build-time default. */
+  dataServerUrl: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -41,7 +43,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   orderSlots: 14,
   crashMinDropPct: 15,
   paperEnabled: true,
+  dataServerUrl: '',
 };
+
+/** Build-time default from VITE_DATA_URL (see .github/workflows/deploy.yml). */
+export const DEFAULT_DATA_URL: string = (import.meta.env?.VITE_DATA_URL as string | undefined) ?? '';
+
+export const effectiveDataUrl = (s: AppSettings): string => (s.dataServerUrl || DEFAULT_DATA_URL).trim().replace(/\/+$/, '');
 
 export const TAX_PRESETS = [
   { key: 'taxDefault', rate: 0.0125 },

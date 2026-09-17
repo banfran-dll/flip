@@ -2,7 +2,7 @@ import type { T } from '../hooks/useT';
 import { integer, parseCoins } from '../lib/format';
 import type { AlertRule } from '../lib/alerts';
 import { primeAudio } from '../lib/sound';
-import { DEFAULT_SETTINGS, TAX_PRESETS, type AppSettings } from '../settings';
+import { DEFAULT_DATA_URL, DEFAULT_SETTINGS, TAX_PRESETS, type AppSettings } from '../settings';
 import { NumField } from './NumField';
 
 interface Props {
@@ -173,6 +173,15 @@ export function SettingsPanel({ settings, onChange, onTestAlert, notificationPer
         <button type="button" className="btn btn--ghost btn--sm" onClick={onTestAlert}>
           🔔 {t('alertsTest')}
         </button>
+      </section>
+
+      <section className="settings__group">
+        <h3 className="settings__heading">{t('dataServer')}</h3>
+        <label className="field">
+          <span className="field__label">{t('dataServerUrl')}</span>
+          <input className="input" type="url" value={settings.dataServerUrl} placeholder={DEFAULT_DATA_URL || 'https://…workers.dev'} onChange={(e) => set('dataServerUrl', e.target.value)} />
+          <span className="field__hint">{t('dataServerHint')}</span>
+        </label>
       </section>
 
       <section className="settings__group">

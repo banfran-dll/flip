@@ -123,6 +123,35 @@ npm run preview    # 빌드 결과 미리보기
 | Netlify | `npm run build` | `dist` | 저장소의 `netlify.toml`이 자동 적용됨 |
 | Vercel | `npm run build` | `dist` | 프레임워크 "Vite" 자동 감지 |
 
+## 데이터 서버 (Cloudflare Worker, 선택)
+
+`worker/`에 24시간 수집기가 있습니다. 1분마다 바자 API를 받아 D1(SQLite)에 5분 버킷(아이템 100개 묶음 행)과 시간별 집계로 저장하고, 앱에 이력·기준가 API를 제공합니다. 붙이면 앱을 여는 순간부터 24시간 기준가로 급락 감지가 동작하고, 상세 패널에 24시간/7일/30일 차트가 뜹니다. 디스코드 웹훅을 넣으면 브라우저를 꺼도 급락 알림을 받습니다.
+
+| 엔드포인트 | 내용 |
+| --- | --- |
+| `GET /v1/status` | 아이템 수, 마지막 스냅샷, 이력 시작 시각 |
+| `GET /v1/derived` | 전 아이템 24시간 기준가(중앙값)·거래량 + 급락 목록 (5분마다 갱신) |
+| `GET /v1/history/:id?range=24h\|7d\|30d\|90d` | 아이템 이력 (24h·7d는 5분, 30d·90d는 1시간 단위) |
+
+**설치 (한 번)**
+
+```bash
+cd worker
+npm install
+npx wrangler login                       # Cloudflare 계정 연결
+npx wrangler d1 create bzflip            # 출력된 database_id를 wrangler.toml에 붙여넣기
+npm run migrate                          # 테이블 생성
+npx wrangler secret put DISCORD_WEBHOOK_URL   # 선택: 디스코드 급락 알림
+npm run deploy                           # https://bzflip-data.<계정>.workers.dev
+```
+
+배포된 주소를 앱 설정 → 데이터 서버 URL에 넣거나, 저장소 변수 `DATA_URL`(Settings → Secrets and variables → Actions → Variables)에 넣으면 GitHub Pages 빌드에 기본값으로 들어갑니다.
+`.github/workflows/deploy-worker.yml`은 `worker/`가 바뀔 때 자동 배포합니다. 저장소 시크릿 `CLOUDFLARE_API_TOKEN`(Workers Scripts:Edit, D1:Edit 권한)과 `CLOUDFLARE_ACCOUNT_ID`가 필요합니다.
+
+**요금**: D1·Workers 무료 한도 안에 들어가도록 설계했습니다(하루 쓰기 약 8천 행, 읽기 약 200만 행). 다만 무료 플랜의 요청당 CPU 10ms 제한은 3.6MB 바자 JSON 파싱에 빠듯할 수 있습니다. cron 실행이 CPU 초과로 실패하면 Workers Paid(월 $5, CPU 30초)로 올리면 됩니다.
+
+**보관**: 5분 버킷 7일, 시간별 90일. 알림 임계값은 `wrangler.toml`의 `CRASH_MIN_DROP`(기본 15%), `CRASH_MIN_TRADES`(24시간 체결 5,000개)로 조정합니다.
+
 ## 계산 방식
 
 API 필드 이름은 "플레이어가 하는 행동" 기준이라 헷갈리기 쉽습니다 (`src/api/bazaar.ts` 주석 참고).
@@ -181,6 +210,8 @@ src/
   lib/buckets.ts       5분 버킷 집계, lib/histdb.ts IndexedDB 보관, lib/crash.ts 급락 감지 (테스트 대상)
   api/coflnet.ts       Coflnet 장기 이력 (상세 차트용, 선택)
   lib/paper.ts         모의 매매 시뮬레이션과 성과 요약 (테스트 대상)
+  api/dataServer.ts    데이터 서버(worker/) 클라이언트
+worker/                Cloudflare Worker 수집기 + D1 스키마 + API (자체 테스트)
   hooks/               폴링, localStorage 상태, 번역
   components/          헤더, 설정 패널, 정렬 테이블, 상세 패널, 호가창, 스파크라인
   i18n.ts              한국어/영어 문자열

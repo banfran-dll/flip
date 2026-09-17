@@ -147,6 +147,17 @@ const ko = {
   disclaimer: '데이터: Hypixel 공개 API (약 20초마다 새 스냅샷). 모든 수치는 추정치이며 실제 체결·이익을 보장하지 않습니다.',
   prevValue: '이전 스냅샷',
 
+  // data server
+  dataServer: '데이터 서버',
+  dataServerUrl: '데이터 서버 URL',
+  dataServerHint: 'worker/ 폴더의 Cloudflare Worker 주소 (예: https://bzflip-data.<계정>.workers.dev). 비워 두면 빌드 시 설정된 기본값을 씁니다. 연결되면 급락 감지·장기 차트가 서버 이력을 사용합니다.',
+  serverConnected: '서버 이력 {h}시간 · 갱신 {age}',
+  serverConnecting: '서버 연결 확인 중…',
+  serverUnavailable: '서버에 연결할 수 없어 브라우저 수집 이력을 씁니다',
+  serverNoData: '서버가 아직 데이터를 모으는 중입니다 (첫 5분 버킷 후 표시)',
+  range30d: '30일',
+  chartSourceServer: '출처: 데이터 서버 ({r})',
+
   // paper trading
   tabPaper: '성과 (모의)',
   paperHint: '5분마다 추천 1위를 가상 주문으로 기록하고, 이후 실제 스냅샷(호가·체결량)으로 체결을 시뮬레이션합니다. 매수 주문은 밀리면 최고가+0.1로 재입찰, 매도 주문은 언더컷되면 최저가−0.1로 재등록하며, 맨 앞에 있을 때의 체결량을 모두 받는다고 가정합니다(낙관적). 6시간 넘게 끝나지 않으면 만료 처리(남은 물량 즉시 판매). 예상 대비 실현 비율로 추천의 정확도를 가늠하세요.',
@@ -476,6 +487,16 @@ const en: Dict = {
 
   disclaimer: 'Data: public Hypixel API (new snapshot about every 20 s). All figures are estimates and do not guarantee fills or profit.',
   prevValue: 'Previous snapshot',
+
+  dataServer: 'Data server',
+  dataServerUrl: 'Data server URL',
+  dataServerHint: 'Address of the Cloudflare Worker in worker/ (e.g. https://bzflip-data.<account>.workers.dev). Leave empty to use the build-time default. When connected, crash detection and long-range charts use the server history.',
+  serverConnected: 'server history {h} h · updated {age}',
+  serverConnecting: 'checking server…',
+  serverUnavailable: 'server unreachable, using history collected in this browser',
+  serverNoData: 'server is still collecting (available after the first 5-minute bucket)',
+  range30d: '30 d',
+  chartSourceServer: 'Source: data server ({r})',
 
   tabPaper: 'Track record',
   paperHint: 'Every 5 minutes the #1 pick is recorded as a virtual flip and then driven by the real snapshots that follow. The virtual buy order is re-bid to top + 0.1 when outbid, the sell offer re-priced to lowest − 0.1 when undercut, and it is assumed to receive every trade while at the top (optimistic). Trades older than 6 hours expire (remaining units instasold). Compare realized with expected to judge how much to trust the recommendations.',

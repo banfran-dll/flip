@@ -1,0 +1,27 @@
+# Cloudflare Worker: bazaar collector + history API.
+# One-time setup:
+#   npx wrangler login
+#   npx wrangler d1 create bzflip           → paste the database_id below
+#   npm run migrate                          → creates the tables
+#   npx wrangler secret put DISCORD_WEBHOOK_URL   (optional)
+#   npm run deploy
+name = "bzflip-data"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bzflip"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+# Crash alert thresholds (Discord). Drop vs the 24 h median instabuy price, and
+# minimum units traded in the last 24 h so illiquid items are ignored.
+CRASH_MIN_DROP = "15"
+CRASH_MIN_TRADES = "5000"
+
+[observability]
+enabled = true

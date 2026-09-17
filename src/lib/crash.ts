@@ -88,3 +88,45 @@ export function findCrashes(products: Record<string, BazaarProduct>, buckets: Bu
 }
 
 export const weeklyPerHour = (weekly: number) => weekly / HOURS_PER_WEEK;
+
+/** Crash candidate from a server-side 24 h baseline and the live top of book. */
+export function crashFromBaseline(
+  product: BazaarProduct,
+  baseline: { b: number; s: number; h: number; v: number },
+  taxRate: number,
+): CrashCandidate | null {
+  const ask = product.buy_summary[0]?.pricePerUnit;
+  const bid = product.sell_summary[0]?.pricePerUnit;
+  if (ask == null || bid == null || !(baseline.b > 0) || baseline.h < MIN_HISTORY_HOURS) return null;
+  const q = product.quick_status;
+  return {
+    id: product.product_id,
+    instaBuyPrice: ask,
+    instaSellPrice: bid,
+    baselineBuy: baseline.b,
+    baselineSell: baseline.s,
+    dropPct: ((baseline.b - ask) / baseline.b) * 100,
+    recoveryMarginPct: ((Math.max(0, baseline.b - TICK) * (1 - taxRate) - ask) / ask) * 100,
+    historyHours: baseline.h,
+    windowTrades: baseline.v,
+    weeklyVolume: Math.min(q.buyMovingWeek, q.sellMovingWeek),
+    series: [],
+  };
+}
+
+export function findCrashesFromBaselines(
+  products: Record<string, BazaarProduct>,
+  baselines: Record<string, { b: number; s: number; h: number; v: number }>,
+  taxRate: number,
+  filters: CrashFilters,
+): CrashCandidate[] {
+  const out: CrashCandidate[] = [];
+  for (const p of Object.values(products)) {
+    const base = baselines[p.product_id];
+    if (!base) continue;
+    if (Math.min(p.quick_status.buyMovingWeek, p.quick_status.sellMovingWeek) < filters.minWeeklyVolume) continue;
+    const c = crashFromBaseline(p, base, taxRate);
+    if (c && c.dropPct >= filters.minDropPct) out.push(c);
+  }
+  return out.sort((a, b) => b.dropPct - a.dropPct);
+}

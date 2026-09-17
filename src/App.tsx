@@ -21,7 +21,9 @@ import { planBudget } from './lib/planner';
 import { computeAllCraftFlips, type RecipeBook } from './lib/craft';
 import { BucketBuilder, type Bucket } from './lib/buckets';
 import { loadBuckets, saveBucket } from './lib/histdb';
-import { findCrashes } from './lib/crash';
+import { findCrashes, findCrashesFromBaselines } from './lib/crash';
+import { fetchServerDerived, fetchServerStatus, type ServerDerived, type ServerStatus } from './api/dataServer';
+import { ago } from './lib/format';
 import { openTrade, stepTrade, type PaperTrade } from './lib/paper';
 import { NumField } from './components/NumField';
 import recipeData from './data/recipes.json';
@@ -34,7 +36,7 @@ import { blendRates, liveRates } from './lib/rates';
 import { computeSignals, scoreFlip, type ScoredFlip } from './lib/signals';
 import { playAlertSound } from './lib/sound';
 import { matchesQuery, scoreMatch } from './lib/search';
-import { DEFAULT_SETTINGS, toFlipFilters, toFlipSettings, type AppSettings } from './settings';
+import { DEFAULT_SETTINGS, effectiveDataUrl, toFlipFilters, toFlipSettings, type AppSettings } from './settings';
 
 type Tab = 'flips' | 'planner' | 'lookup' | 'favorites' | 'orders' | 'npc' | 'craft' | 'crash' | 'paper';
 
@@ -57,6 +59,31 @@ export default function App() {
 
   const t = useT(lang);
   const { snapshot, error, loading, fetchedAt, nextExpectedAt, refresh } = useBazaar({ mode: settings.refreshMode, intervalSec: settings.refreshSec });
+
+  // Optional data server: 24 h baselines for crash detection, refreshed every 5 minutes.
+  const serverUrl = effectiveDataUrl(settings);
+  const [server, setServer] = useState<{ derived: ServerDerived | null; status: ServerStatus | null; state: 'idle' | 'ok' | 'nodata' | 'error' }>({ derived: null, status: null, state: 'idle' });
+  useEffect(() => {
+    if (!serverUrl) {
+      setServer({ derived: null, status: null, state: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [status, derived] = await Promise.all([fetchServerStatus(serverUrl), fetchServerDerived(serverUrl).catch(() => null)]);
+        if (!cancelled) setServer({ derived, status, state: derived ? 'ok' : 'nodata' });
+      } catch {
+        if (!cancelled) setServer((s) => ({ ...s, state: 'error' }));
+      }
+    };
+    void load();
+    const id = window.setInterval(() => void load(), 5 * 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [serverUrl]);
 
   const historyRef = useRef(new PriceHistory());
   const builderRef = useRef(new BucketBuilder());
@@ -152,13 +179,12 @@ export default function App() {
 
   const crashRows = useMemo(() => {
     if (!snapshot) return [];
+    const filters = { minDropPct: settings.crashMinDropPct, minWeeklyVolume: settings.minWeeklyVolume };
+    if (server.derived) return searchFilter(findCrashesFromBaselines(snapshot.products, server.derived.items, settings.taxRate, filters), (c) => c.id);
     const current = builderRef.current.peek();
     const all = current ? [...buckets, current] : buckets;
-    return searchFilter(
-      findCrashes(snapshot.products, all, settings.taxRate, { minDropPct: settings.crashMinDropPct, minWeeklyVolume: settings.minWeeklyVolume }, snapshot.lastUpdated),
-      (c) => c.id,
-    );
-  }, [snapshot, buckets, settings.taxRate, settings.crashMinDropPct, settings.minWeeklyVolume, query]); // eslint-disable-line react-hooks/exhaustive-deps
+    return searchFilter(findCrashes(snapshot.products, all, settings.taxRate, filters, snapshot.lastUpdated), (c) => c.id);
+  }, [snapshot, buckets, server.derived, settings.taxRate, settings.crashMinDropPct, settings.minWeeklyVolume, query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const npcRows = useMemo(() => {
     if (!snapshot) return [];
@@ -441,7 +467,20 @@ export default function App() {
                   <span className="field__label">{t('crashMinDrop')}</span>
                   <NumField className="input input--narrow" value={settings.crashMinDropPct} onChange={(n) => setSettings((s) => ({ ...s, crashMinDropPct: Math.max(0, n) }))} />
                 </label>
-                <span className="muted">{t('historyStored', { h: ((buckets.length * 5) / 60).toFixed(1) })}</span>
+                <span className="muted">
+                  {serverUrl
+                    ? server.state === 'ok' && server.status
+                      ? t('serverConnected', {
+                          h: server.status.historySince ? Math.max(0, (Date.now() - server.status.historySince) / 3_600_000).toFixed(1) : '0',
+                          age: ago((now - (server.derived?.t ?? now)) / 1000, lang),
+                        })
+                      : server.state === 'nodata'
+                        ? t('serverNoData')
+                        : server.state === 'error'
+                          ? t('serverUnavailable')
+                          : t('serverConnecting')
+                    : t('historyStored', { h: ((buckets.length * 5) / 60).toFixed(1) })}
+                </span>
               </div>
               <DataTable
                 key="crash"
@@ -512,6 +551,7 @@ export default function App() {
               budget={settings.budget}
               history={historyRef.current.get(selectedProduct.product_id)}
               buckets={buckets}
+              serverUrl={serverUrl}
               isFavorite={favorites.has(selectedProduct.product_id)}
               onToggleFavorite={() => toggleFavorite(selectedProduct.product_id)}
               onClose={() => setSelectedId(null)}

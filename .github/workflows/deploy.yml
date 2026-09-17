@@ -29,6 +29,9 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+        env:
+          # Repository variable: Settings → Secrets and variables → Actions → Variables → DATA_URL
+          VITE_DATA_URL: ${{ vars.DATA_URL }}
       - name: Publish dist/ to the gh-pages branch
         run: |
           touch dist/.nojekyll
