@@ -108,12 +108,12 @@ npm run preview    # 빌드 결과 미리보기
 
 정적 사이트라 어디에나 올릴 수 있습니다. 빌드 명령 `npm run build`, 출력 폴더 `dist`.
 
-**GitHub Pages (공개 저장소일 때 자동)**
-`.github/workflows/deploy.yml`이 `main`에 푸시될 때마다 빌드해서 Pages에 올립니다. 첫 실행 때 Pages(소스: GitHub Actions)를 자동으로 켭니다.
+**GitHub Pages (공개 저장소)**
+`.github/workflows/deploy.yml`이 `main`에 푸시될 때마다 빌드해서 `gh-pages` 브랜치에 올리고, GitHub Pages가 그 브랜치를 게시합니다.
 주소는 `https://<user>.github.io/<repo>/` 이고, `vite.config.ts`의 `base: './'` 덕분에 하위 경로에서도 그대로 동작합니다.
+사이트가 안 보이면 **Settings → Pages → Build and deployment → Source: Deploy from a branch → `gh-pages` / (root)** 를 한 번만 선택해 주세요.
 
-> 무료 플랜의 **비공개 저장소에서는 GitHub Pages를 쓸 수 없습니다** (워크플로가 "Resource not accessible by integration"으로 실패).
-> 저장소를 공개로 바꾸거나(Settings → General → Danger Zone → Change visibility) GitHub Pro로 올리면 다음 푸시부터 배포됩니다.
+> 무료 플랜의 **비공개 저장소에서는 GitHub Pages를 쓸 수 없습니다.** 저장소를 공개로 바꾸거나 GitHub Pro로 올리면 됩니다.
 
 **비공개 저장소를 유지하면서 무료로 배포하기** — 아래 서비스는 비공개 GitHub 저장소를 무료로 연결할 수 있습니다. 대시보드에서 저장소를 가져온 뒤 다음 값만 넣으면 됩니다.
 
