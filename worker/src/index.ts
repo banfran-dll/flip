@@ -1,6 +1,7 @@
 import { BUCKET_MS, HOUR_MS, computeDerived, emptyState, ingest, metaOf, rollup, seriesOf, stateFrom, type Derived, type Finished, type GroupRow, type Meta, type Snapshot } from './aggregate';
 import { fromBlob, fromBlob64, textFromBlob, toBlob } from './codec';
 import { postCrashAlerts } from './discord';
+import { parseSnapshotFast } from './parse';
 
 export interface Env {
   DB: D1Database;
@@ -48,9 +49,8 @@ function saveStateStatements(db: D1Database, s: ReturnType<typeof emptyState>) {
 async function fetchSnapshot(): Promise<Snapshot> {
   const res = await fetch(BAZAAR_URL, { headers: { accept: 'application/json', 'user-agent': 'bzflip-data-collector' } });
   if (!res.ok) throw new Error(`bazaar HTTP ${res.status}`);
-  const data = (await res.json()) as { success?: boolean; lastUpdated?: number; products?: Snapshot['products'] };
-  if (!data.success || !data.products || !data.lastUpdated) throw new Error('bad bazaar payload');
-  return { lastUpdated: data.lastUpdated, products: data.products };
+  // Regex extraction instead of JSON.parse: ~6 ms vs ~30 ms of CPU (see parse.ts).
+  return parseSnapshotFast(await res.text());
 }
 
 async function readGroupRows(db: D1Database, table: 'buckets5' | 'hourly', from: number, to: number, g?: number): Promise<GroupRow[]> {

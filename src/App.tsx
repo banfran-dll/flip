@@ -60,8 +60,22 @@ export default function App() {
   const t = useT(lang);
   const { snapshot, error, loading, fetchedAt, nextExpectedAt, refresh } = useBazaar({ mode: settings.refreshMode, intervalSec: settings.refreshSec });
 
-  // Optional data server: 24 h baselines for crash detection, refreshed every 5 minutes.
-  const serverUrl = effectiveDataUrl(settings);
+  // Optional data server: the URL comes from the settings field, the build-time VITE_DATA_URL,
+  // or public/data-server.json written by the deploy-worker workflow.
+  const [discoveredUrl, setDiscoveredUrl] = useState('');
+  useEffect(() => {
+    if (effectiveDataUrl(settings)) return;
+    const ac = new AbortController();
+    fetch(`${import.meta.env.BASE_URL}data-server.json`, { signal: ac.signal, cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { url?: string } | null) => {
+        if (j?.url) setDiscoveredUrl(String(j.url));
+      })
+      .catch(() => {});
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const serverUrl = effectiveDataUrl(settings) || discoveredUrl.trim().replace(/\/+$/, '');
   const [server, setServer] = useState<{ derived: ServerDerived | null; status: ServerStatus | null; state: 'idle' | 'ok' | 'nodata' | 'error' }>({ derived: null, status: null, state: 'idle' });
   useEffect(() => {
     if (!serverUrl) {

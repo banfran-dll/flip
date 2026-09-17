@@ -133,22 +133,17 @@ npm run preview    # 빌드 결과 미리보기
 | `GET /v1/derived` | 전 아이템 24시간 기준가(중앙값)·거래량 + 급락 목록 (5분마다 갱신) |
 | `GET /v1/history/:id?range=24h\|7d\|30d\|90d` | 아이템 이력 (24h·7d는 5분, 30d·90d는 1시간 단위) |
 
-**설치 (한 번)**
+**설치 (브라우저만으로, 약 5분)**
 
-```bash
-cd worker
-npm install
-npx wrangler login                       # Cloudflare 계정 연결
-npx wrangler d1 create bzflip            # 출력된 database_id를 wrangler.toml에 붙여넣기
-npm run migrate                          # 테이블 생성
-npx wrangler secret put DISCORD_WEBHOOK_URL   # 선택: 디스코드 급락 알림
-npm run deploy                           # https://bzflip-data.<계정>.workers.dev
-```
+1. https://dash.cloudflare.com 에서 계정을 만들고 로그인합니다.
+2. 왼쪽 메뉴 **Workers & Pages**를 한 번 엽니다. 처음이면 `workers.dev` 하위 도메인을 정하라고 하니 아무 이름이나 정합니다. 오른쪽에 보이는 **Account ID**를 복사합니다.
+3. 오른쪽 위 프로필 → **My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" 템플릿 → Use template**. 권한 목록에 **Account · D1 · Edit**를 추가하고 토큰을 만들어 복사합니다.
+4. GitHub 저장소 **Settings → Secrets and variables → Actions → New repository secret**으로 두 개를 넣습니다: `CLOUDFLARE_API_TOKEN`(3의 토큰), `CLOUDFLARE_ACCOUNT_ID`(2의 ID).
+5. 저장소 **Actions → Deploy data worker → Run workflow**. 워크플로가 D1 생성, 마이그레이션, 워커 배포, 사이트에 서버 주소 기록(`public/data-server.json`), 사이트 재배포까지 합니다.
 
-배포된 주소를 앱 설정 → 데이터 서버 URL에 넣거나, 저장소 변수 `DATA_URL`(Settings → Secrets and variables → Actions → Variables)에 넣으면 GitHub Pages 빌드에 기본값으로 들어갑니다.
-`.github/workflows/deploy-worker.yml`은 `worker/`가 바뀔 때 자동 배포합니다. 저장소 시크릿 `CLOUDFLARE_API_TOKEN`(Workers Scripts:Edit, D1:Edit 권한)과 `CLOUDFLARE_ACCOUNT_ID`가 필요합니다.
+이후에는 `worker/`가 바뀔 때마다 자동으로 다시 배포됩니다. 앱은 `data-server.json`을 읽어 서버를 자동으로 찾고, 설정 → 데이터 서버 URL로 덮어쓸 수도 있습니다. 디스코드 알림은 Cloudflare 대시보드 → Workers & Pages → `bzflip-data` → Settings → Variables and Secrets에 `DISCORD_WEBHOOK_URL`을 추가하면 켜집니다.
 
-**요금**: D1·Workers 무료 한도 안에 들어가도록 설계했습니다(하루 쓰기 약 8천 행, 읽기 약 200만 행). 다만 무료 플랜의 요청당 CPU 10ms 제한은 3.6MB 바자 JSON 파싱에 빠듯할 수 있습니다. cron 실행이 CPU 초과로 실패하면 Workers Paid(월 $5, CPU 30초)로 올리면 됩니다.
+**요금**: 무료 플랜 안에 들어가도록 설계했습니다. D1은 하루 쓰기 약 8천 행·읽기 약 200만 행이고, 수집기는 3.6MB 응답을 JSON.parse(약 30ms) 대신 정규식으로 필요한 값만 뽑아(약 6ms) Workers 무료 플랜의 요청당 CPU 10ms 제한 안에서 돕니다. 대시보드 → Workers & Pages → `bzflip-data` → Logs에서 cron 오류가 보이면 알려주세요.
 
 **보관**: 5분 버킷 7일, 시간별 90일. 알림 임계값은 `wrangler.toml`의 `CRASH_MIN_DROP`(기본 15%), `CRASH_MIN_TRADES`(24시간 체결 5,000개)로 조정합니다.
 
