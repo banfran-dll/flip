@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { BazaarProduct } from '../api/bazaar';
 import type { T } from '../hooks/useT';
 import type { Lang } from '../i18n';
-import { MAX_ORDER_SIZE, planFlip, walkBook, type FlipResult } from '../lib/flip';
+import { MAX_ORDER_SIZE, planFlip, walkBook } from '../lib/flip';
+import { confidenceParts, type ScoredFlip } from '../lib/signals';
+import { Trend } from './Trend';
 import { coins, compact, duration, integer, parseCoins, pct } from '../lib/format';
 import type { PricePoint } from '../lib/history';
 import { itemName } from '../lib/names';
@@ -14,7 +16,7 @@ import { Sparkline } from './Sparkline';
 
 interface Props {
   product: BazaarProduct;
-  flip: FlipResult | null;
+  flip: ScoredFlip | null;
   taxRate: number;
   budget: number;
   history: PricePoint[];
@@ -96,6 +98,8 @@ export function ItemDetail({ product, flip, taxRate, budget, history, isFavorite
             <Row k={t('colOrders')} v={`${integer(flip.competingBuyOrders)} / ${integer(flip.competingSellOffers)}`} />
           </div>
           <RiskBadges flags={flip.flags} t={t} verbose />
+          <h4 className="panel__subtitle">{t('signals')}</h4>
+          <SignalRows flip={flip} t={t} />
         </section>
       ) : (
         <section className="panel muted">{t('noFlipPossible')}</section>
@@ -152,6 +156,26 @@ export function ItemDetail({ product, flip, taxRate, budget, history, isFavorite
         </div>
       </section>
     </aside>
+  );
+}
+
+function SignalRows({ flip, t }: { flip: ScoredFlip; t: T }) {
+  const sg = flip.signals;
+  const parts = confidenceParts(flip, sg);
+  const spread = Number.isFinite(sg.trendBuyPct) && Number.isFinite(sg.trendSellPct) ? sg.trendBuyPct - sg.trendSellPct : NaN;
+  return (
+    <div className="kv">
+      <Row k={t('colScore')} v={<span className="strong">{compact(flip.score)}</span>} />
+      <Row
+        k={t('confidence')}
+        v={`${pct(flip.confidence * 100, 0)}  (${t('stabilityFactor')} ${parts.stability.toFixed(2)} × ${t('competitionFactor')} ${parts.competition.toFixed(2)} × ${t('flagFactor')} ${parts.flagPenalty.toFixed(2)})`}
+      />
+      <Row k={t('colStability')} v={sg.samples < 2 ? t('collectingHistory') : `${t('persisted', { n: sg.persisted })} · ${t('undercut', { p: Math.round(sg.undercut * 100) })}`} />
+      <Row k={`${t('colTrend')} (${t('colBuyOrder')} / ${t('colSellOffer')})`} v={Number.isFinite(sg.trendBuyPct) || Number.isFinite(sg.trendSellPct) ? <Trend buyPct={sg.trendSellPct} sellPct={sg.trendBuyPct} /> : t('collectingHistory')} />
+      {Number.isFinite(spread) && Math.abs(spread) > 0.05 && (
+        <Row k={t('colSpread')} v={<span className={spread > 0 ? 'pos' : 'neg'}>{spread > 0 ? t('spreadWidening') : t('spreadNarrowing')}</span>} />
+      )}
+    </div>
   );
 }
 

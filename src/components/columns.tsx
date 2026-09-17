@@ -8,11 +8,13 @@ import type { Column } from './DataTable';
 import { Changed } from './Changed';
 import { ItemName } from './ItemName';
 import { RiskBadges } from './RiskBadges';
+import { Trend } from './Trend';
+import type { ScoredFlip } from '../lib/signals';
 
 export interface LookupRow {
   id: string;
   product: BazaarProduct;
-  flip: FlipResult | null;
+  flip: ScoredFlip | null;
 }
 
 export interface ChangeContext {
@@ -22,8 +24,8 @@ export interface ChangeContext {
   stamp: number;
 }
 
-export function flipColumns(t: T, lang: Lang, favorites: ReadonlySet<string>, ctx: ChangeContext): Column<FlipResult>[] {
-  const chg = (f: FlipResult, pick: (x: FlipResult) => number, node: React.ReactNode, title?: string) => {
+export function flipColumns(t: T, lang: Lang, favorites: ReadonlySet<string>, ctx: ChangeContext): Column<ScoredFlip>[] {
+  const chg = (f: ScoredFlip, pick: (x: FlipResult) => number, node: React.ReactNode, title?: string) => {
     const p = ctx.prev.get(f.id);
     return (
       <Changed value={pick(f)} prev={p ? pick(p) : undefined} stamp={ctx.stamp} title={title ?? (p ? `${t('prevValue')}: ${coins(pick(p))}` : undefined)}>
@@ -81,19 +83,49 @@ export function flipColumns(t: T, lang: Lang, favorites: ReadonlySet<string>, ct
     { key: 'units', header: t('colUnits'), tip: t('colUnitsTip'), align: 'right', render: (f) => integer(f.units), sortValue: (f) => f.units },
     { key: 'cycle', header: t('colCycle'), tip: t('colCycleTip'), align: 'right', render: (f) => duration(f.cycleHours, lang), sortValue: (f) => f.cycleHours },
     {
-      key: 'profitCycle',
-      header: t('colProfitCycle'),
-      align: 'right',
-      render: (f) => <span title={coins(f.profitPerCycle)}>{compact(f.profitPerCycle)}</span>,
-      sortValue: (f) => f.profitPerCycle,
-    },
-    {
       key: 'profitHour',
       header: t('colProfitHour'),
       tip: t('colProfitHourTip'),
       align: 'right',
       render: (f) => chg(f, (x) => x.profitPerHour, <span className="pos strong">{compact(f.profitPerHour)}</span>, coins(f.profitPerHour)),
       sortValue: (f) => f.profitPerHour,
+    },
+    {
+      key: 'score',
+      header: t('colScore'),
+      tip: t('colScoreTip'),
+      align: 'right',
+      render: (f) => (
+        <span className="score" title={`${t('confidence')} ${pct(f.confidence * 100, 0)}`}>
+          {compact(f.score)}
+        </span>
+      ),
+      sortValue: (f) => f.score,
+    },
+    {
+      key: 'stability',
+      header: t('colStability'),
+      tip: t('colStabilityTip'),
+      align: 'right',
+      render: (f) =>
+        f.signals.samples < 2 ? (
+          <span className="muted">…</span>
+        ) : (
+          <span>
+            <span className={f.signals.persisted >= 5 ? 'pos' : f.signals.persisted <= 1 ? 'neg' : ''}>{f.signals.persisted}</span>
+            <span className="muted"> / </span>
+            <span className={f.signals.undercut >= 0.5 ? 'neg' : ''}>{Math.round(f.signals.undercut * 100)}%</span>
+          </span>
+        ),
+      sortValue: (f) => f.confidence,
+    },
+    {
+      key: 'trend',
+      header: t('colTrend'),
+      tip: t('colTrendTip'),
+      align: 'right',
+      render: (f) => <Trend buyPct={f.signals.trendSellPct} sellPct={f.signals.trendBuyPct} />,
+      sortValue: (f) => (Number.isFinite(f.signals.trendBuyPct) && Number.isFinite(f.signals.trendSellPct) ? f.signals.trendBuyPct - f.signals.trendSellPct : NaN),
     },
     {
       key: 'orders',

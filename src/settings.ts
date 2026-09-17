@@ -1,4 +1,5 @@
 import type { RefreshMode } from './hooks/useBazaar';
+import { DEFAULT_ALERT_RULE, type AlertRule } from './lib/alerts';
 import { DEFAULT_FLIP_FILTERS, DEFAULT_FLIP_SETTINGS, MAX_ORDER_SIZE, type FlipFilters, type FlipSettings, type HideFlags } from './lib/flip';
 
 export interface AppSettings {
@@ -14,6 +15,7 @@ export interface AppSettings {
   refreshMode: RefreshMode;
   /** Polling period in 'interval' mode. */
   refreshSec: number;
+  alerts: AlertRule;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -28,6 +30,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   hideFlags: DEFAULT_FLIP_FILTERS.hideFlags,
   refreshMode: 'live',
   refreshSec: 30,
+  alerts: DEFAULT_ALERT_RULE,
 };
 
 export const TAX_PRESETS = [

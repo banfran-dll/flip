@@ -226,8 +226,9 @@ export function computeAllFlips(products: Record<string, BazaarProduct>, setting
   return out;
 }
 
-export function rankFlips(flips: FlipResult[], filters: FlipFilters): FlipResult[] {
-  return flips.filter((f) => passesFilters(f, filters)).sort((a, b) => b.profitPerHour - a.profitPerHour);
+/** Filter, then sort descending by `key` (profit/h by default; the app passes the confidence-weighted score). */
+export function rankFlips<T extends FlipResult>(flips: T[], filters: FlipFilters, key: (f: T) => number = (f) => f.profitPerHour): T[] {
+  return flips.filter((f) => passesFilters(f, filters)).sort((a, b) => key(b) - key(a));
 }
 
 export interface BookWalk {
